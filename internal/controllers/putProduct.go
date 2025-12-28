@@ -1,11 +1,14 @@
 package controllers
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func PutProduct(c *gin.Context){
-	c.String(http.StatusOK, "put product")
+func PutProduct(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context){
+		c.String(http.StatusOK, "put product")
+	}
 }
