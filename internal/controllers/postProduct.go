@@ -2,9 +2,13 @@ package controllers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/afan104/products-api/internal"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type postProduct struct {
@@ -13,14 +17,44 @@ type postProduct struct {
 	Description string `json:"description" binding:"omitempty,max=250"`
 }
 
+type  Product struct {
+	GUID string `json:"guid"`
+	Name string `json:"name"`
+	Price float64 `json:"price"`
+	Description string `json:"description"`
+	CreatedAt string `json:"createdAt"`
+}
+
 func PostProduct(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context){
 		var payload postProduct
+		var ctx = c.Request.Context()
 
 		if e := c.ShouldBindJSON(&payload); e != nil {
-			c.JSON(http.StatusBadRequest, e.Error())
+			var res = internal.NewHTTPResponse(http.StatusBadRequest, e)
+			c.JSON(http.StatusBadRequest, res)
 			return
 		}
-		c.String(http.StatusOK, "post product")
+
+		var guid = uuid.New().String()
+		var createdAt = time.Now().Format(time.RFC3339)
+		if _, e := db.ExecContext(ctx, "INSERT INTO products(guid, name, price, description, createdAt) VALUES(?,?,?,?,?)", guid, payload.Name, payload.Price, payload.Description, createdAt); e != nil {
+			var res = internal.NewHTTPResponse(http.StatusInternalServerError, e)
+			c.JSON(http.StatusInternalServerError, res)
+			return
+		}
+
+		var product Product 
+		var row = db.QueryRow("SELECT guid,name,price,description,createdAt FROM products WHERE guid=?", guid)
+
+		if e := row.Scan(&product.GUID, &product.Name, &product.Price, &product.Description, &product.CreatedAt); e != nil {
+			var res = internal.NewHTTPResponse(http.StatusInternalServerError, e)
+			c.JSON(http.StatusInternalServerError, res)
+			return	
+		}
+
+		var res = internal.NewHTTPResponse(http.StatusCreated, product)
+		c.Writer.Header().Add("Location", fmt.Sprintf("/products/%s", guid))
+		c.JSON(http.StatusCreated, res)
 	}
 }

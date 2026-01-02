@@ -4,11 +4,38 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/afan104/products-api/internal"
 	"github.com/gin-gonic/gin"
 )
 
+type guidBinding struct {
+	GUID string `uri:"guid" binding:"required,uuid4"`
+}
 func GetProduct(db *sql.DB) gin.HandlerFunc{
 	return func(c *gin.Context) {
-		c.String(http.StatusOK, "get product")
+		// extract guid
+		var ctx = c.Request.Context()
+		var binding guidBinding
+		if e := c.ShouldBindUri(&binding); e != nil {
+			var res = internal.NewHTTPResponse(http.StatusInternalServerError, e)
+			c.JSON(http.StatusInternalServerError, res)
+			return
+		}
+		// get sql row and return the results (error or ok)
+		var row = db.QueryRowContext(ctx, "SELECT guid,name,price,description,createdAt FROM products WHERE guid=?", binding.GUID)
+		var product Product
+		if e := row.Scan(&product.GUID, &product.Name, &product.Price, &product.Description, &product.CreatedAt); e != nil {
+			if e == sql.ErrNoRows {
+				var res = internal.NewHTTPResponse(http.StatusNotFound, e)
+				c.JSON(http.StatusNotFound, res)
+				return
+			}
+			var res = internal.NewHTTPResponse(http.StatusInternalServerError, e)
+			c.JSON(http.StatusInternalServerError, res)
+			return			
+		}
+		var res = internal.NewHTTPResponse(http.StatusOK, product)
+		c.JSON(http.StatusOK, res)
 	}
+
 }
