@@ -31,7 +31,6 @@ func main(){
 		log.Fatalf("Error: %v", e)
 	}
 
-	sql.Open("sqlite3", "./data.db")
 	router.GET("/products", controllers.GetProducts(db))
 	router.GET("/products/:guid", controllers.GetProduct(db))
 	router.POST("/products", controllers.PostProduct(db))
